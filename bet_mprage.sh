@@ -17,6 +17,7 @@ py_loc=/export/local/linux64/2.6/pkg/python2.6/bin/
 #Location of FSL installation
 #NOTE - USED FSL5 LOCATION TO ENABLE USE OF FSL_ANAT
 FSL_loc=/export/local/linux64/2.6/pkg/fsl5/bin/
+FSLDIR="/export/local/linux64/2.6/pkg/fsl5/bin/"
 #Set paths
 PATH=${py_loc}:${AFNI_loc}:${FREE_loc}:${FSL_loc}:${PATH}
 
@@ -30,6 +31,17 @@ echo "******** BEGIN $0 $(date) ********"
 
 # TSB - NOT USING SOURCE_FILE APPROACH; MOVING RELEVANT VARIABLES TO THIS SCRIPT
 # source source_file.sh
+scriptdir=`pwd`
+
+# Ensure that FSL outputs as .nii.gz (scripts assume that)
+export FSLOUTPUTTYPE=NIFTI_GZ
+
+# This is the main working directory within which are all the data folders
+# Needs to be the full (absolute) path (not a relative path)
+
+
+wd="/data/nil-external/ccp/INDIV-2/TSB_analyses/2012/FSL_PROCESSING/"
+
 
 FAILURES_FILE=$wd/failures.txt
 
@@ -39,30 +51,57 @@ cd $wd
 echo -e "\n#### $0 $(date) ####" >> $FAILURES_FILE
 
 ## Define subjects
-allSubjects=${subjects[@]}     ## defined in source_file.sh
+#allSubjects=${subjects[@]}     ## defined in source_file.sh
 #allSubjects=`ls -1d C4*`
 
-dir=$wd/structs
-cd $dir
+# NEED TO MODIFY THIS TO DO DIFFERENT SUBJECTS
+allSubjects="ab13531"
+
+# Option to use -B  option with bet (reduces image bias and residual neck voxels); makes runtime slower
+# (1=use -B; 0=don't use -B)
+useB=0
+
+# Option to use fsl_anat instead of bet -- supposedly works better (with FNIRT) but slower
+# (1=use fsl_anat; 0=use bet)
+useFslAnat=0
+
+#dir=$wd/structs
+# cd $dir
 
 for subj in $allSubjects; do
-    files=(`ls ${subj}*.nii.gz | grep -v brain`) # list all the mprage files, excluding already bet'ed files
+    cd $subj
+    files=(`ls mprage*.nii.gz | grep -v brain`) # list all the mprage files, excluding already bet'ed files
     if [ ${#files[@]} -eq 0 ] ; then
 	echo "$subj: No T1w structural exists. $(date)" >> $FAILURES_FILE
 	continue
     fi
+
+     if [ ${useB} -eq 1 ]; then
+         bval="-B"
+     else
+	 bval=""
 
     for file in ${files[@]}; do # loop through the mprage files
 	echo "------"
         # insert '_brain' into output file name
 	brain=`$FSLDIR/bin/remove_ext $file`_brain
 	
-        # run brain extraction tool
-	if [ `imtest $brain` -eq 0 ] || [ $redobet -ne 0 ] ; then
-	    $FSLDIR/bin/bet $file $brain -f 0.3 -B -v
-	else
-	    echo "structs/$file: bet already run ($brain exists)"
-	fi
+         if [ ${useFslAnat} -eq 0 ]; then 
+        	# run brain extraction tool
+		if [ `imtest $brain` -eq 0 ] || [ $redobet -ne 0 ] ; then
+	    		$FSLDIR/bin/bet $file $brain -f 0.3 -B -v
+		else
+	    		echo "$file: bet already run ($brain exists)"
+		fi
+         fi
+         if [ ${useFslAnat} -eq 1 ]; then 
+        	# run fsl_anat tool
+		if [ `imtest $brain` -eq 0 ] || [ $redobet -ne 0 ] ; then
+	    		$FSLDIR/bin/fsl_anat -i $file --noseg --nosubcortseg --weakbias
+		else
+	    		echo "$file: bet already run ($brain exists)"
+		fi
+         fi
 	echo
     done
 done
