@@ -76,10 +76,11 @@ for subj in $allSubjects; do
 	continue
     fi
 
-     if [ ${useB} -eq 1 ]; then
+    if [ ${useB} -eq 1 ]; then
          bval="-B"
-     else
+    else
 	 bval=""
+    fi
 
     for file in ${files[@]}; do # loop through the mprage files
 	echo "------"
@@ -89,7 +90,7 @@ for subj in $allSubjects; do
          if [ ${useFslAnat} -eq 0 ]; then 
         	# run brain extraction tool
 		if [ `imtest $brain` -eq 0 ] || [ $redobet -ne 0 ] ; then
-	    		$FSLDIR/bin/bet $file $brain -f 0.3 -B -v
+	    		$FSLDIR/bin/bet $file $brain -f 0.3 $bval -v
 		else
 	    		echo "$file: bet already run ($brain exists)"
 		fi
